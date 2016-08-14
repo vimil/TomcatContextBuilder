@@ -48,10 +48,12 @@ import org.osgi.service.prefs.BackingStoreException;
 public class TomcatContextPropertyPage extends PropertyPage {
 
 	private static final String CONTEXT_CONFIG_TITLE = "&Tomcat Context:";
+	private static final String CONTAINER_TOMCAT_VERSION_TITLE = "&Tomcat Version:";
 	private static final String CONTEXT_CONFIG_LOCATION_TITLE = "&Tomcat Context Location:";
 	private static final String CONTEXT_RELOADABLE_FLAG_TITLE = "Reloadable";
 	private static final String CONTEXT_USEHTTPONLY_FLAG_TITLE = "Use Http Only";
 	private static final String CONTEXT_SCAN_ALL_DIRECTORIES_FOR_JARS_FLAG_TITLE = "Scan all directories for JARs";
+	private static final String CONTEXT_CONTAINER_SCI_FILTER_TITLE = "Container Sci Filter:";
 
 	private static final Pattern CONTEXT_NAME_PATTERN = Pattern.compile("[a-zA-Z0-9_]+");
 
@@ -66,6 +68,8 @@ public class TomcatContextPropertyPage extends PropertyPage {
 	private Text resourcePathText;
 
 	private Text resourceLocationText;
+
+	private Text containerSciFilterText;
 
 	private Label contextSeparator;
 
@@ -96,6 +100,8 @@ public class TomcatContextPropertyPage extends PropertyPage {
 	private Button scanAllDirectoriesForJarsButton;
 
 	private Combo contextsCombo;
+
+	private Combo tomcatVersionsCombo;
 
 	private TableViewer resourcesViewer;
 
@@ -154,13 +160,13 @@ public class TomcatContextPropertyPage extends PropertyPage {
 		contextsCombo.setLayoutData(fdContextsCombo);
 
 		List<String> contextNames = new ArrayList<String>();
-		for(ContextConfigInfo contextConfig: contextConfigs) {
+		for (ContextConfigInfo contextConfig : contextConfigs) {
 			String contextName = contextConfig.getContextName();
 			contextNames.add(contextName);
 			contextsCombo.setData(contextName, contextConfig);
 		}
 		contextsCombo.setItems(contextNames.toArray(new String[0]));
-		if(!contextNames.isEmpty()) {
+		if (!contextNames.isEmpty()) {
 			contextsCombo.select(0);
 		}
 
@@ -175,9 +181,9 @@ public class TomcatContextPropertyPage extends PropertyPage {
 
 					@Override
 					public String isValid(String newText) {
-						if(newText != null) {
+						if (newText != null) {
 							Matcher matcher = CONTEXT_NAME_PATTERN.matcher(newText);
-							if(!matcher.matches()) {
+							if (!matcher.matches()) {
 								return "Context name is not valid";
 							}
 						}
@@ -185,19 +191,20 @@ public class TomcatContextPropertyPage extends PropertyPage {
 					}
 				});
 
-				if(inputDialog.open() == InputDialog.OK) {
+				if (inputDialog.open() == InputDialog.OK) {
 					String contextName = inputDialog.getValue();
-					if(contextName != null && !contextName.isEmpty() && !contextConfigsMap.containsKey(contextName) && indexOf(contextsCombo.getItems(), contextName) == -1) {
+					if (contextName != null && !contextName.isEmpty() && !contextConfigsMap.containsKey(contextName)
+							&& indexOf(contextsCombo.getItems(), contextName) == -1) {
 						addContextConfig(contextName);
-					}
-					else {
+					} else {
 						MessageDialog.openError(getShell(), "Invalid Context Name", "Tomcat Context Name is not valid");
 					}
 				}
 			}
 
 			@Override
-			public void widgetDefaultSelected(SelectionEvent e) {}
+			public void widgetDefaultSelected(SelectionEvent e) {
+			}
 		});
 
 		removeContextButton = new Button(parent, SWT.PUSH);
@@ -211,9 +218,9 @@ public class TomcatContextPropertyPage extends PropertyPage {
 			@Override
 			public void widgetSelected(SelectionEvent e) {
 				int selectionIndex = contextsCombo.getSelectionIndex();
-				if(selectionIndex >= 0) {
+				if (selectionIndex >= 0) {
 					String selectedContextConfigName = contextsCombo.getItem(selectionIndex);
-					ContextConfigInfo contextConfigInfo = (ContextConfigInfo)contextsCombo.getData(selectedContextConfigName);
+					ContextConfigInfo contextConfigInfo = (ContextConfigInfo) contextsCombo.getData(selectedContextConfigName);
 					contextConfigs.remove(contextConfigInfo);
 					contextConfigsMap.remove(selectedContextConfigName);
 					contextsCombo.remove(selectionIndex);
@@ -224,7 +231,8 @@ public class TomcatContextPropertyPage extends PropertyPage {
 			}
 
 			@Override
-			public void widgetDefaultSelected(SelectionEvent e) {}
+			public void widgetDefaultSelected(SelectionEvent e) {
+			}
 
 		});
 
@@ -236,20 +244,20 @@ public class TomcatContextPropertyPage extends PropertyPage {
 			@Override
 			public void widgetSelected(SelectionEvent e) {
 				int selectionIndex = contextsCombo.getSelectionIndex();
-				if(selectionIndex >= 0) {
+				if (selectionIndex >= 0) {
 					String selectedContextConfigName = contextsCombo.getItem(selectionIndex);
-					selectedContextConfig = (ContextConfigInfo)contextsCombo.getData(selectedContextConfigName);
+					selectedContextConfig = (ContextConfigInfo) contextsCombo.getData(selectedContextConfigName);
 					removeContextButton.setEnabled(true);
 					updateView();
-				}
-				else {
+				} else {
 					removeContextButton.setEnabled(false);
 				}
 
 			}
 
 			@Override
-			public void widgetDefaultSelected(SelectionEvent e) {}
+			public void widgetDefaultSelected(SelectionEvent e) {
+			}
 		});
 
 		contextSeparator = new Label(parent, SWT.SEPARATOR | SWT.HORIZONTAL);
@@ -261,18 +269,31 @@ public class TomcatContextPropertyPage extends PropertyPage {
 	}
 
 	private void updateView() {
-		if(selectedContextConfig != null) {
-			String contextConfigLocation = selectedContextConfig.getContextConfigLocation();
-			if(contextConfigLocation != null) {
-				contextConfigText.setText(contextConfigLocation);
+		if (selectedContextConfig != null) {
+			TomcatVersion tomcatVersion = selectedContextConfig.getTomcatVersion();
+			if (tomcatVersion == null) {
+				tomcatVersion = TomcatVersion.fromVersionStr(TomcatConstants.DEFAULT_TOMCAT_VERSION_STR);
 			}
-			else {
+			int itemIndex = indexOf(tomcatVersionsCombo.getItems(), tomcatVersion.getVersionStr());
+			if (itemIndex >= 0) {
+				tomcatVersionsCombo.select(itemIndex);
+			}
+
+			String contextConfigLocation = selectedContextConfig.getContextConfigLocation();
+			if (contextConfigLocation != null) {
+				contextConfigText.setText(contextConfigLocation);
+			} else {
 				contextConfigText.setText("");
 			}
 
 			reloadableFlagButton.setSelection(selectedContextConfig.isReloadableFlag());
 			useHttpOnlyFlagButton.setSelection(selectedContextConfig.isReloadableFlag());
 			scanAllDirectoriesForJarsButton.setSelection(selectedContextConfig.isScanAllDirectoriesForJarsFlag());
+
+			String containerSciFilter = selectedContextConfig.getContainerSciFilter();
+			if (containerSciFilter != null) {
+				containerSciFilterText.setText(containerSciFilter);
+			}
 
 			List<ResourceInfo> resources = new ArrayList<ResourceInfo>(selectedContextConfig.getResources());
 			ResourcesContentProvider resourcesContentProvider = new ResourcesContentProvider(resources);
@@ -284,8 +305,7 @@ public class TomcatContextPropertyPage extends PropertyPage {
 			parametersViewer.setContentProvider(parametersContentProvider);
 			parametersViewer.setInput(parametersContentProvider.getParameters());
 
-		}
-		else {
+		} else {
 			contextConfigText.setText("");
 			reloadableFlagButton.setSelection(false);
 			useHttpOnlyFlagButton.setSelection(false);
@@ -311,7 +331,8 @@ public class TomcatContextPropertyPage extends PropertyPage {
 	}
 
 	private void addContextConfig(String contextName) {
-		if(contextName != null && !contextName.isEmpty() && !contextConfigsMap.containsKey(contextName) && indexOf(contextsCombo.getItems(), contextName) == -1) {
+		if (contextName != null && !contextName.isEmpty() && !contextConfigsMap.containsKey(contextName)
+				&& indexOf(contextsCombo.getItems(), contextName) == -1) {
 			ContextConfigInfo contextConfigInfo = new ContextConfigInfo();
 			contextConfigInfo.setContextName(contextName);
 
@@ -323,42 +344,65 @@ public class TomcatContextPropertyPage extends PropertyPage {
 			contextsCombo.setData(contextName, contextConfigInfo);
 			contextsCombo.select(contextNames.length - 1);
 			updateView();
-		}
-		else {
+		} else {
 			MessageDialog.openError(getShell(), "Invalid Context Name", "Tomcat Context Name is not valid");
 		}
 
 	}
 
 	private void addContextLocationSection(final Composite parent) {
+		Label tomcatVersionLabel = new Label(parent, SWT.NONE);
+		tomcatVersionLabel.setText(CONTAINER_TOMCAT_VERSION_TITLE);
+		FormData fdTomcatVersionLabel = new FormData(convertWidthInCharsToPixels(30), convertHeightInCharsToPixels(1));
+		fdTomcatVersionLabel.left = new FormAttachment(0, 5);
+		tomcatVersionLabel.setLayoutData(fdTomcatVersionLabel);
+
+		tomcatVersionsCombo = new Combo(parent, SWT.DROP_DOWN | SWT.READ_ONLY);
+		FormData fdTomcatVersionsCombo = new FormData();
+		fdTomcatVersionsCombo.width = 150;
+		fdTomcatVersionsCombo.left = new FormAttachment(tomcatVersionLabel, 5);
+		fdTomcatVersionsCombo.top = new FormAttachment(tomcatVersionLabel, 0, SWT.CENTER);
+
+		tomcatVersionsCombo.setLayoutData(fdTomcatVersionsCombo);
+
+		List<String> tomcatVersions = new ArrayList<String>();
+		for (TomcatVersion tomcatVersion : TomcatVersion.values()) {
+			String versionStr = tomcatVersion.getVersionStr();
+			tomcatVersions.add(versionStr);
+		}
+		tomcatVersionsCombo.setItems(tomcatVersions.toArray(new String[0]));
+		if (!tomcatVersions.isEmpty()) {
+			tomcatVersionsCombo.select(0);
+		}
 
 		Label contextXmlLabel = new Label(parent, SWT.NONE);
 		contextXmlLabel.setText(CONTEXT_CONFIG_LOCATION_TITLE);
-		FormData fd1 = new FormData(convertWidthInCharsToPixels(30), convertHeightInCharsToPixels(1));
-		fd1.left = new FormAttachment(0, 5);
-		contextXmlLabel.setLayoutData(fd1);
+		FormData fdContextXmlLabel = new FormData(convertWidthInCharsToPixels(30), convertHeightInCharsToPixels(1));
+		fdContextXmlLabel.left = new FormAttachment(0, 5);
+		fdContextXmlLabel.top = new FormAttachment(tomcatVersionsCombo, 8, SWT.BOTTOM);
+		contextXmlLabel.setLayoutData(fdContextXmlLabel);
 
 		contextConfigText = new Text(parent, SWT.SINGLE | SWT.BORDER);
-		FormData fd2 = new FormData(convertWidthInCharsToPixels(20), convertHeightInCharsToPixels(1));
-		fd2.top = new FormAttachment(contextXmlLabel, 0, SWT.CENTER);
-		fd2.left = new FormAttachment(contextXmlLabel, 3);
-		fd2.right = new FormAttachment(100, -5);
-		contextConfigText.setLayoutData(fd2);
+		FormData fdContextConfigText = new FormData(convertWidthInCharsToPixels(20), convertHeightInCharsToPixels(1));
+		fdContextConfigText.top = new FormAttachment(contextXmlLabel, 0, SWT.CENTER);
+		fdContextConfigText.left = new FormAttachment(tomcatVersionsCombo, 0, SWT.LEFT);
+		fdContextConfigText.right = new FormAttachment(100, -5);
+		contextConfigText.setLayoutData(fdContextConfigText);
 
 		contextConfigSelectorButton = new Button(parent, SWT.PUSH);
 		contextConfigSelectorButton.setText("Select...");
-		FormData fd3 = new FormData(80, 20);
-		fd3.top = new FormAttachment(contextConfigText, 3, SWT.BOTTOM);
-		fd3.right = new FormAttachment(100, -5);
-		contextConfigSelectorButton.setLayoutData(fd3);
+		FormData fdContextConfigSelectorButton = new FormData(80, 20);
+		fdContextConfigSelectorButton.top = new FormAttachment(contextConfigText, 3, SWT.BOTTOM);
+		fdContextConfigSelectorButton.right = new FormAttachment(100, -5);
+		contextConfigSelectorButton.setLayoutData(fdContextConfigSelectorButton);
 
 		Listener contextConfigSelectorButtonListener = new Listener() {
 			@Override
 			public void handleEvent(Event event) {
-				if(event.widget == contextConfigSelectorButton) {
+				if (event.widget == contextConfigSelectorButton) {
 					DirectoryDialog dialog = new DirectoryDialog(parent.getShell());
 					String contextConfigLocation = dialog.open();
-					if(contextConfigLocation != null) {
+					if (contextConfigLocation != null) {
 						contextConfigText.setText(contextConfigLocation);
 					}
 				}
@@ -388,11 +432,25 @@ public class TomcatContextPropertyPage extends PropertyPage {
 		fdScanAllDirectoriesForJarsButton.top = new FormAttachment(useHttpOnlyFlagButton, 3, SWT.BOTTOM);
 		scanAllDirectoriesForJarsButton.setLayoutData(fdScanAllDirectoriesForJarsButton);
 
+		Label containerSciFilterLabel = new Label(parent, SWT.NONE);
+		containerSciFilterLabel.setText(CONTEXT_CONTAINER_SCI_FILTER_TITLE);
+		FormData fdContainerSciFilterLabel = new FormData(convertWidthInCharsToPixels(20), convertHeightInCharsToPixels(1));
+		fdContainerSciFilterLabel.top = new FormAttachment(scanAllDirectoriesForJarsButton, 8, SWT.BOTTOM);
+		fdContainerSciFilterLabel.left = new FormAttachment(0, 5);
+		containerSciFilterLabel.setLayoutData(fdContainerSciFilterLabel);
+
+		containerSciFilterText = new Text(parent, SWT.SINGLE | SWT.BORDER);
+		FormData fdContainerSciFilterText = new FormData(150, convertHeightInCharsToPixels(1));
+		fdContainerSciFilterText.top = new FormAttachment(containerSciFilterLabel, 0, SWT.CENTER);
+		fdContainerSciFilterText.left = new FormAttachment(containerSciFilterLabel, 3);
+		fdContainerSciFilterText.right = new FormAttachment(100, -5);
+		containerSciFilterText.setLayoutData(fdContainerSciFilterText);
+
 		contextConfigSeparator = new Label(parent, SWT.SEPARATOR | SWT.HORIZONTAL);
 		FormData fdContextConfigSeparatorSeperator = new FormData(10, 10);
 		fdContextConfigSeparatorSeperator.left = new FormAttachment(0, 5);
 		fdContextConfigSeparatorSeperator.right = new FormAttachment(100, -5);
-		fdContextConfigSeparatorSeperator.top = new FormAttachment(scanAllDirectoriesForJarsButton, 10, SWT.BOTTOM);
+		fdContextConfigSeparatorSeperator.top = new FormAttachment(containerSciFilterText, 10, SWT.BOTTOM);
 		contextConfigSeparator.setLayoutData(fdContextConfigSeparatorSeperator);
 
 	}
@@ -415,7 +473,7 @@ public class TomcatContextPropertyPage extends PropertyPage {
 		Label parameterValueLabel = new Label(parent, SWT.NONE);
 		parameterValueLabel.setText("Parameter Value: ");
 		FormData fdParameterValueLabel = new FormData(convertWidthInCharsToPixels(20), convertHeightInCharsToPixels(1));
-		fdParameterValueLabel.top = new FormAttachment(parameterNameText, 3, SWT.BOTTOM);
+		fdParameterValueLabel.top = new FormAttachment(parameterNameText, 8, SWT.BOTTOM);
 		fdParameterValueLabel.left = new FormAttachment(0, 10);
 		parameterValueLabel.setLayoutData(fdParameterValueLabel);
 
@@ -438,7 +496,7 @@ public class TomcatContextPropertyPage extends PropertyPage {
 
 			@Override
 			public void handleEvent(Event event) {
-				ParametersContentProvider parametersContentProvider = (ParametersContentProvider)parametersViewer.getContentProvider();
+				ParametersContentProvider parametersContentProvider = (ParametersContentProvider) parametersViewer.getContentProvider();
 				ParameterInfo parameterInfo = new ParameterInfo(parameterNameText.getText(), parameterValueText.getText());
 				parametersContentProvider.addParameter(parameterInfo);
 				parametersViewer.refresh();
@@ -477,19 +535,19 @@ public class TomcatContextPropertyPage extends PropertyPage {
 
 			@Override
 			public void handleEvent(Event event) {
-				ParametersContentProvider parametersContentProvider = (ParametersContentProvider)parametersViewer.getContentProvider();
+				ParametersContentProvider parametersContentProvider = (ParametersContentProvider) parametersViewer.getContentProvider();
 				List<Integer> checkedItemIndices = new ArrayList<Integer>();
 
 				TableItem[] items = parametersTable.getItems();
-				if(items != null) {
-					for(int i = 0; i < items.length; i++) {
-						if(items[i].getChecked()) {
+				if (items != null) {
+					for (int i = 0; i < items.length; i++) {
+						if (items[i].getChecked()) {
 							checkedItemIndices.add(i);
 						}
 					}
 				}
 
-				if(!checkedItemIndices.isEmpty()) {
+				if (!checkedItemIndices.isEmpty()) {
 					parametersContentProvider.removeParameters(checkedItemIndices);
 					parametersViewer.refresh();
 
@@ -567,14 +625,15 @@ public class TomcatContextPropertyPage extends PropertyPage {
 		fdResourceTableSeparator.top = new FormAttachment(removeResourcesButton, 10, SWT.BOTTOM);
 		resourceTableSeparator.setLayoutData(fdResourceTableSeparator);
 
-		final Button[] moveResourcesButtons = new Button[] {moveResourcesTopButton, moveResourcesUpButton, moveResourcesDownButton, moveResourcesBottomButton};
+		final Button[] moveResourcesButtons = new Button[] { moveResourcesTopButton, moveResourcesUpButton, moveResourcesDownButton,
+				moveResourcesBottomButton };
 		Listener moveResourcesTopButtonOnClickEventListener = new Listener() {
 
 			@Override
 			public void handleEvent(Event event) {
 				int[] selectedIndices = resourcesTable.getSelectionIndices();
-				if(selectedIndices != null) {
-					ResourcesContentProvider resourcesContentProvider = (ResourcesContentProvider)resourcesViewer.getContentProvider();
+				if (selectedIndices != null) {
+					ResourcesContentProvider resourcesContentProvider = (ResourcesContentProvider) resourcesViewer.getContentProvider();
 					List<ResourceInfo> resources = resourcesContentProvider.getResources();
 
 					Set<ResourceInfo> checkedResources = getCheckedResources(resourcesTable, resources);
@@ -582,7 +641,7 @@ public class TomcatContextPropertyPage extends PropertyPage {
 					Arrays.sort(selectedIndices);
 
 					List<ResourceInfo> removedResources = new ArrayList<ResourceInfo>();
-					for(int i = selectedIndices.length - 1; i >= 0; i--) {
+					for (int i = selectedIndices.length - 1; i >= 0; i--) {
 						removedResources.add(0, resources.remove(selectedIndices[i]));
 					}
 					resources.addAll(0, removedResources);
@@ -604,18 +663,18 @@ public class TomcatContextPropertyPage extends PropertyPage {
 			@Override
 			public void handleEvent(Event event) {
 				int[] selectedIndices = resourcesTable.getSelectionIndices();
-				if(selectedIndices != null) {
-					ResourcesContentProvider resourcesContentProvider = (ResourcesContentProvider)resourcesViewer.getContentProvider();
+				if (selectedIndices != null) {
+					ResourcesContentProvider resourcesContentProvider = (ResourcesContentProvider) resourcesViewer.getContentProvider();
 					List<ResourceInfo> resources = resourcesContentProvider.getResources();
 
 					Set<ResourceInfo> checkedResources = getCheckedResources(resourcesTable, resources);
 
 					Arrays.sort(selectedIndices);
 
-					for(int i = 0; i < selectedIndices.length; i++) {
+					for (int i = 0; i < selectedIndices.length; i++) {
 						int currentIndex = selectedIndices[i];
 						int previousIndex = (currentIndex - 1);
-						if(previousIndex >= 0) {
+						if (previousIndex >= 0) {
 							ResourceInfo previousResource = resources.get(previousIndex);
 							ResourceInfo currentResource = resources.get(currentIndex);
 							resources.set(previousIndex, currentResource);
@@ -640,8 +699,8 @@ public class TomcatContextPropertyPage extends PropertyPage {
 			@Override
 			public void handleEvent(Event event) {
 				int[] selectedIndices = resourcesTable.getSelectionIndices();
-				if(selectedIndices != null) {
-					ResourcesContentProvider resourcesContentProvider = (ResourcesContentProvider)resourcesViewer.getContentProvider();
+				if (selectedIndices != null) {
+					ResourcesContentProvider resourcesContentProvider = (ResourcesContentProvider) resourcesViewer.getContentProvider();
 					List<ResourceInfo> resources = resourcesContentProvider.getResources();
 
 					Set<ResourceInfo> checkedResources = getCheckedResources(resourcesTable, resources);
@@ -650,10 +709,10 @@ public class TomcatContextPropertyPage extends PropertyPage {
 
 					int itemCount = resourcesTable.getItemCount();
 
-					for(int i = selectedIndices.length - 1; i >= 0; i--) {
+					for (int i = selectedIndices.length - 1; i >= 0; i--) {
 						int currentIndex = selectedIndices[i];
 						int nextIndex = (currentIndex + 1);
-						if(nextIndex < itemCount) {
+						if (nextIndex < itemCount) {
 							ResourceInfo previousResource = resources.get(nextIndex);
 							ResourceInfo currentResource = resources.get(currentIndex);
 							resources.set(nextIndex, currentResource);
@@ -678,9 +737,9 @@ public class TomcatContextPropertyPage extends PropertyPage {
 			@Override
 			public void handleEvent(Event event) {
 				int[] selectedIndices = resourcesTable.getSelectionIndices();
-				if(selectedIndices != null) {
+				if (selectedIndices != null) {
 
-					ResourcesContentProvider resourcesContentProvider = (ResourcesContentProvider)resourcesViewer.getContentProvider();
+					ResourcesContentProvider resourcesContentProvider = (ResourcesContentProvider) resourcesViewer.getContentProvider();
 					List<ResourceInfo> resources = resourcesContentProvider.getResources();
 
 					Set<ResourceInfo> checkedResources = getCheckedResources(resourcesTable, resources);
@@ -688,7 +747,7 @@ public class TomcatContextPropertyPage extends PropertyPage {
 					Arrays.sort(selectedIndices);
 
 					List<ResourceInfo> removedResources = new ArrayList<ResourceInfo>();
-					for(int i = selectedIndices.length - 1; i >= 0; i--) {
+					for (int i = selectedIndices.length - 1; i >= 0; i--) {
 						removedResources.add(0, resources.remove(selectedIndices[i]));
 					}
 					resources.addAll(removedResources);
@@ -712,7 +771,7 @@ public class TomcatContextPropertyPage extends PropertyPage {
 
 				String resourceLocationStr = resourceLocationText.getText();
 				String resolvedLocation = TomcatContextUtil.resolvePath(project, resourceLocationStr);
-				if(resolvedLocation != null) {
+				if (resolvedLocation != null) {
 					resourceLocationText.setData(resolvedLocation);
 					addResourceButton.setEnabled(true);
 				}
@@ -723,19 +782,19 @@ public class TomcatContextPropertyPage extends PropertyPage {
 
 			@Override
 			public void handleEvent(Event event) {
-				ResourcesContentProvider resourcesContentProvider = (ResourcesContentProvider)resourcesViewer.getContentProvider();
+				ResourcesContentProvider resourcesContentProvider = (ResourcesContentProvider) resourcesViewer.getContentProvider();
 				List<Integer> checkedItemIndices = new ArrayList<Integer>();
 
 				TableItem[] items = resourcesTable.getItems();
-				if(items != null) {
-					for(int i = 0; i < items.length; i++) {
-						if(items[i].getChecked()) {
+				if (items != null) {
+					for (int i = 0; i < items.length; i++) {
+						if (items[i].getChecked()) {
 							checkedItemIndices.add(i);
 						}
 					}
 				}
 
-				if(!checkedItemIndices.isEmpty()) {
+				if (!checkedItemIndices.isEmpty()) {
 					resourcesContentProvider.removeResources(checkedItemIndices);
 					resourcesViewer.refresh();
 
@@ -778,7 +837,7 @@ public class TomcatContextPropertyPage extends PropertyPage {
 		Label resourceLocationLabel = new Label(parent, SWT.NONE);
 		resourceLocationLabel.setText("Resource Location: ");
 		FormData fdResourceLocationLabel = new FormData(convertWidthInCharsToPixels(20), convertHeightInCharsToPixels(1));
-		fdResourceLocationLabel.top = new FormAttachment(resourcePathText, 3, SWT.BOTTOM);
+		fdResourceLocationLabel.top = new FormAttachment(resourcePathText, 8, SWT.BOTTOM);
 		fdResourceLocationLabel.left = new FormAttachment(0, 10);
 		resourceLocationLabel.setLayoutData(fdResourceLocationLabel);
 
@@ -801,7 +860,7 @@ public class TomcatContextPropertyPage extends PropertyPage {
 			public void handleEvent(Event event) {
 				DirectoryDialog dialog = new DirectoryDialog(getShell());
 				String result = dialog.open();
-				if(result != null) {
+				if (result != null) {
 					resourceLocationText.setText(result);
 				}
 			}
@@ -822,8 +881,9 @@ public class TomcatContextPropertyPage extends PropertyPage {
 
 			@Override
 			public void handleEvent(Event event) {
-				ResourcesContentProvider resourcesContentProvider = (ResourcesContentProvider)resourcesViewer.getContentProvider();
-				ResourceInfo resourceInfo = new ResourceInfo(resourcePathText.getText(), resourceLocationText.getText(), (String)resourceLocationText.getData());
+				ResourcesContentProvider resourcesContentProvider = (ResourcesContentProvider) resourcesViewer.getContentProvider();
+				ResourceInfo resourceInfo = new ResourceInfo(resourcePathText.getText(), resourceLocationText.getText(),
+						(String) resourceLocationText.getData());
 				resourcesContentProvider.addResource(resourceInfo);
 				resourcesViewer.refresh();
 
@@ -851,30 +911,28 @@ public class TomcatContextPropertyPage extends PropertyPage {
 		List<ContextConfigInfo> contextConfigList = tomcatPreferencesManager.read();
 		contextConfigs.addAll(contextConfigList);
 
-		for(ContextConfigInfo contextConfigInfo: contextConfigs) {
+		for (ContextConfigInfo contextConfigInfo : contextConfigs) {
 			contextConfigsMap.put(contextConfigInfo.getContextName(), contextConfigInfo);
 		}
 
-		if(!contextConfigs.isEmpty()) {
+		if (!contextConfigs.isEmpty()) {
 			selectedContextConfig = contextConfigs.get(0);
 		}
 	}
 
 	private void setMoveResourcesButtonsEnablement(int[] selectedIndices, int itemCount, final Button[] moveResourcesButtons) {
-		if(allowSelectionToMoveUp(selectedIndices)) {
+		if (allowSelectionToMoveUp(selectedIndices)) {
 			moveResourcesButtons[0].setEnabled(true);
 			moveResourcesButtons[1].setEnabled(true);
-		}
-		else {
+		} else {
 			moveResourcesButtons[0].setEnabled(false);
 			moveResourcesButtons[1].setEnabled(false);
 		}
 
-		if(allowSelectionToMoveDown(selectedIndices, itemCount)) {
+		if (allowSelectionToMoveDown(selectedIndices, itemCount)) {
 			moveResourcesButtons[2].setEnabled(true);
 			moveResourcesButtons[3].setEnabled(true);
-		}
-		else {
+		} else {
 			moveResourcesButtons[2].setEnabled(false);
 			moveResourcesButtons[3].setEnabled(false);
 		}
@@ -883,8 +941,8 @@ public class TomcatContextPropertyPage extends PropertyPage {
 	private boolean allowSelectionToMoveUp(int[] selectedIndices) {
 		boolean result = false;
 		Arrays.sort(selectedIndices);
-		for(int i = 0; i < selectedIndices.length; i++) {
-			if(selectedIndices[i] != i) {
+		for (int i = 0; i < selectedIndices.length; i++) {
+			if (selectedIndices[i] != i) {
 				result = true;
 			}
 		}
@@ -894,8 +952,8 @@ public class TomcatContextPropertyPage extends PropertyPage {
 	private boolean allowSelectionToMoveDown(int[] selectedIndices, int itemCount) {
 		boolean result = false;
 		Arrays.sort(selectedIndices);
-		for(int i = selectedIndices.length - 1, j = 1; i >= 0; i--, j++) {
-			if(selectedIndices[i] != itemCount - j) {
+		for (int i = selectedIndices.length - 1, j = 1; i >= 0; i--, j++) {
+			if (selectedIndices[i] != itemCount - j) {
 				result = true;
 			}
 		}
@@ -905,9 +963,9 @@ public class TomcatContextPropertyPage extends PropertyPage {
 	private boolean isAnyItemChecked(final Table table) {
 		boolean isAnyItemChecked = false;
 		TableItem[] items = table.getItems();
-		if(items != null) {
-			for(int i = 0; i < items.length; i++) {
-				if(items[i].getChecked()) {
+		if (items != null) {
+			for (int i = 0; i < items.length; i++) {
+				if (items[i].getChecked()) {
 					isAnyItemChecked = true;
 					break;
 				}
@@ -919,9 +977,9 @@ public class TomcatContextPropertyPage extends PropertyPage {
 	private List<Integer> getCheckedItemIndices(final Table resourcesTable) {
 		List<Integer> result = new ArrayList<Integer>();
 		TableItem[] items = resourcesTable.getItems();
-		if(items != null) {
-			for(int i = 0; i < items.length; i++) {
-				if(items[i].getChecked()) {
+		if (items != null) {
+			for (int i = 0; i < items.length; i++) {
+				if (items[i].getChecked()) {
 					result.add(i);
 				}
 			}
@@ -932,7 +990,7 @@ public class TomcatContextPropertyPage extends PropertyPage {
 	private Set<ResourceInfo> getCheckedResources(final Table resourcesTable, List<ResourceInfo> resources) {
 		List<Integer> checkedItemIndices = getCheckedItemIndices(resourcesTable);
 		Set<ResourceInfo> result = new HashSet<ResourceInfo>();
-		for(int checkedItemIndex: checkedItemIndices) {
+		for (int checkedItemIndex : checkedItemIndices) {
 			result.add(resources.get(checkedItemIndex));
 		}
 
@@ -941,12 +999,11 @@ public class TomcatContextPropertyPage extends PropertyPage {
 
 	private void checkItems(final Table resourcesTable, List<ResourceInfo> resources, Set<ResourceInfo> checkedResources) {
 		TableItem[] items = resourcesTable.getItems();
-		if(items != null) {
-			for(int i = 0; i < items.length; i++) {
-				if(checkedResources.contains(resources.get(i))) {
+		if (items != null) {
+			for (int i = 0; i < items.length; i++) {
+				if (checkedResources.contains(resources.get(i))) {
 					items[i].setChecked(true);
-				}
-				else {
+				} else {
 					items[i].setChecked(false);
 				}
 			}
@@ -956,7 +1013,7 @@ public class TomcatContextPropertyPage extends PropertyPage {
 	@Override
 	protected Control createContents(Composite parent) {
 		IAdaptable adaptable = getElement();
-		IProject project = (IProject)adaptable.getAdapter(IProject.class);
+		project = adaptable.getAdapter(IProject.class);
 
 		loadPreferences(project);
 		initializeDialogUnits(parent);
@@ -987,8 +1044,8 @@ public class TomcatContextPropertyPage extends PropertyPage {
 		parameterViewerColumn1.setLabelProvider(new ColumnLabelProvider() {
 			@Override
 			public String getText(Object element) {
-				if(element != null) {
-					ParameterInfo parameterInfo = (ParameterInfo)element;
+				if (element != null) {
+					ParameterInfo parameterInfo = (ParameterInfo) element;
 					return parameterInfo.getParamName();
 				}
 				return null;
@@ -1006,8 +1063,8 @@ public class TomcatContextPropertyPage extends PropertyPage {
 		parameterViewerColumn2.setLabelProvider(new ColumnLabelProvider() {
 			@Override
 			public String getText(Object element) {
-				if(element != null) {
-					ParameterInfo parameterInfo = (ParameterInfo)element;
+				if (element != null) {
+					ParameterInfo parameterInfo = (ParameterInfo) element;
 					return parameterInfo.getParamValue();
 				}
 				return null;
@@ -1039,8 +1096,8 @@ public class TomcatContextPropertyPage extends PropertyPage {
 		resourceViewerColumn1.setLabelProvider(new ColumnLabelProvider() {
 			@Override
 			public String getText(Object element) {
-				if(element != null) {
-					ResourceInfo resourceInfo = (ResourceInfo)element;
+				if (element != null) {
+					ResourceInfo resourceInfo = (ResourceInfo) element;
 					return resourceInfo.getPath();
 				}
 				return null;
@@ -1058,8 +1115,8 @@ public class TomcatContextPropertyPage extends PropertyPage {
 		resourceViewerColumn2.setLabelProvider(new ColumnLabelProvider() {
 			@Override
 			public String getText(Object element) {
-				if(element != null) {
-					ResourceInfo resourceInfo = (ResourceInfo)element;
+				if (element != null) {
+					ResourceInfo resourceInfo = (ResourceInfo) element;
 					return resourceInfo.getLocation();
 				}
 				return null;
@@ -1083,16 +1140,33 @@ public class TomcatContextPropertyPage extends PropertyPage {
 		super.performDefaults();
 	}
 
+	private boolean validateSelectedContextConfig() {
+		boolean result = false;
+		if (selectedContextConfig != null) {
+			result = true;
+
+			String contextConfigLocationStr = contextConfigText.getText();
+			if (contextConfigLocationStr.isEmpty()) {
+				MessageDialog.openError(getShell(), "Blank Tomcat Context Location", "Tomcat Context Location cannot be blank");
+				result = false;
+			}
+		}
+		return result;
+	}
+
 	@Override
 	protected void performApply() {
-		if(selectedContextConfig != null) {
+		updateSelectedContextConfig();
+	}
+
+	private boolean updateSelectedContextConfig() {
+		boolean result = validateSelectedContextConfig();
+		if (result) {
+			String tomcatVersionStr = tomcatVersionsCombo.getItem(tomcatVersionsCombo.getSelectionIndex());
+			selectedContextConfig.setTomcatVersion(TomcatVersion.fromVersionStr(tomcatVersionStr));
+
 			String contextConfigLocationStr = contextConfigText.getText();
-			if(!contextConfigLocationStr.isEmpty()) {
-				selectedContextConfig.setContextConfigLocation(contextConfigLocationStr);
-			}
-			else {
-				MessageDialog.openError(getShell(), "Blank Tomcat Context Location", "Tomcat Context Location cannot be blank");
-			}
+			selectedContextConfig.setContextConfigLocation(contextConfigLocationStr);
 
 			boolean reloadableFlag = reloadableFlagButton.getSelection();
 			selectedContextConfig.setReloadableFlag(reloadableFlag);
@@ -1103,35 +1177,41 @@ public class TomcatContextPropertyPage extends PropertyPage {
 			boolean scanAllDirectoriesForJarsFlag = scanAllDirectoriesForJarsButton.getSelection();
 			selectedContextConfig.setScanAllDirectoriesForJarsFlag(scanAllDirectoriesForJarsFlag);
 
-			ResourcesContentProvider resourcesContentProvider = (ResourcesContentProvider)resourcesViewer.getContentProvider();
+			String containerSciFilter = containerSciFilterText.getText();
+			selectedContextConfig.setContainerSciFilter(containerSciFilter);
+
+			ResourcesContentProvider resourcesContentProvider = (ResourcesContentProvider) resourcesViewer.getContentProvider();
 			selectedContextConfig.setResources(resourcesContentProvider.getResources());
 
-			ParametersContentProvider parametersContentProvider = (ParametersContentProvider)parametersViewer.getContentProvider();
+			ParametersContentProvider parametersContentProvider = (ParametersContentProvider) parametersViewer.getContentProvider();
 			selectedContextConfig.setParameters(parametersContentProvider.getParameters());
 
-			if(!contextConfigsMap.containsKey(selectedContextConfig.getContextName())) {
+			if (!contextConfigsMap.containsKey(selectedContextConfig.getContextName())) {
 				contextConfigsMap.put(selectedContextConfig.getContextName(), selectedContextConfig);
 				contextConfigs.add(selectedContextConfig);
 			}
 		}
+
+		return result;
 	}
 
 	@Override
 	public boolean performOk() {
 		try {
-			tomcatPreferencesManager.store(contextConfigs);
-		}
-		catch(BackingStoreException e) {
+			if (updateSelectedContextConfig()) {
+				tomcatPreferencesManager.store(contextConfigs);
+				return true;
+			}
+		} catch (BackingStoreException e) {
 			TomcatContextBuilderPlugin.log(IStatus.ERROR, e.getMessage(), e);
-			return false;
 		}
-		return true;
+		return false;
 	}
 
 	private int indexOf(String[] strArray, String str) {
-		if(strArray != null) {
-			for(int i = 0; i < strArray.length; i++) {
-				if(strArray[i] == str || (strArray[i] != null && strArray[i].equals(str))) {
+		if (strArray != null) {
+			for (int i = 0; i < strArray.length; i++) {
+				if (strArray[i] == str || (strArray[i] != null && strArray[i].equals(str))) {
 					return i;
 				}
 			}

@@ -1,4 +1,4 @@
-package com.cwctravel.eclipse.plugins.tomcat;
+package com.cwctravel.eclipse.plugins.tomcat.contextprocessors.v7;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -27,10 +27,14 @@ import org.w3c.dom.Attr;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
-import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 
-public class TomcatContextProcessor {
+import com.cwctravel.eclipse.plugins.tomcat.DOMUtil;
+import com.cwctravel.eclipse.plugins.tomcat.TomcatContextBuilderPlugin;
+import com.cwctravel.eclipse.plugins.tomcat.TomcatContextUtil;
+import com.cwctravel.eclipse.plugins.tomcat.contextprocessors.TomcatContextProcessor;
+
+public class Tomcat7ContextProcessor implements TomcatContextProcessor {
 
 	private String docBase;
 	private final List<String> classpathEntries;
@@ -41,57 +45,64 @@ public class TomcatContextProcessor {
 	private boolean reloadableFlag;
 	private boolean useHttpOnlyFlag;
 	private boolean scanAllDirectoriesForJarsFlag;
-	private final String contextXmlPath;
+	private String contextXmlPath;
 	private final List<String[]> resourceEntries;
 	private final List<String[]> parameterEntries;
 
 	private Document contextXmlDocument;
 
-	public TomcatContextProcessor(IWorkspace workspace, String contextXmlPath) {
+	public Tomcat7ContextProcessor(IWorkspace workspace) {
 		this.workspace = workspace;
-		this.contextXmlPath = contextXmlPath;
 		this.classpathEntries = new ArrayList<String>();
 		this.resourceEntries = new ArrayList<String[]>();
 		this.parameterEntries = new ArrayList<String[]>();
+	}
 
-		if(contextXmlPath != null) {
+	@Override
+	public void load(String contextXmlPath) {
+		this.contextXmlPath = contextXmlPath;
+		classpathEntries.clear();
+		resourceEntries.clear();
+		parameterEntries.clear();
+
+		if (contextXmlPath != null) {
 			try {
 				DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
 				DocumentBuilder dBuilder;
 				dBuilder = dbFactory.newDocumentBuilder();
 
 				File contextXmlFile = new File(contextXmlPath);
-				if(contextXmlFile.isFile()) {
+				if (contextXmlFile.isFile()) {
 					InputStream contents = new FileInputStream(contextXmlFile);
 					try {
 						contextXmlDocument = dBuilder.parse(contents);
 						contextXmlDocument.getDocumentElement().normalize();
 
-						Node contextNode = findFirstNode(contextXmlDocument, "Context");
-						if(contextNode != null) {
-							Attr docBaseAttr = (Attr)contextNode.getAttributes().getNamedItem("docBase");
-							if(docBaseAttr != null) {
+						Node contextNode = DOMUtil.findFirstNode(contextXmlDocument, "Context");
+						if (contextNode != null) {
+							Attr docBaseAttr = (Attr) contextNode.getAttributes().getNamedItem("docBase");
+							if (docBaseAttr != null) {
 								docBase = docBaseAttr.getValue();
 							}
 
-							Attr reloadableFlagAttr = (Attr)contextNode.getAttributes().getNamedItem("reloadable");
-							if(reloadableFlagAttr != null) {
+							Attr reloadableFlagAttr = (Attr) contextNode.getAttributes().getNamedItem("reloadable");
+							if (reloadableFlagAttr != null) {
 								reloadableFlag = Boolean.parseBoolean(reloadableFlagAttr.getValue());
 							}
 
-							Attr useHttpOnlyFlagAttr = (Attr)contextNode.getAttributes().getNamedItem("useHttpOnly");
-							if(useHttpOnlyFlagAttr != null) {
+							Attr useHttpOnlyFlagAttr = (Attr) contextNode.getAttributes().getNamedItem("useHttpOnly");
+							if (useHttpOnlyFlagAttr != null) {
 								useHttpOnlyFlag = Boolean.parseBoolean(useHttpOnlyFlagAttr.getValue());
 							}
 						}
 
-						Node resourcesNode = findFirstNode(contextXmlDocument, "Resources");
-						if(resourcesNode != null) {
-							Attr extraResourcePathsAttr = (Attr)resourcesNode.getAttributes().getNamedItem("extraResourcePaths");
-							if(extraResourcePathsAttr != null) {
+						Node resourcesNode = DOMUtil.findFirstNode(contextXmlDocument, "Resources");
+						if (resourcesNode != null) {
+							Attr extraResourcePathsAttr = (Attr) resourcesNode.getAttributes().getNamedItem("extraResourcePaths");
+							if (extraResourcePathsAttr != null) {
 								String resourceEntriesStr = extraResourcePathsAttr.getValue();
-								if(resourceEntriesStr != null && !resourceEntriesStr.isEmpty()) {
-									for(String resourceEntry: resourceEntriesStr.split(",")) {
+								if (resourceEntriesStr != null && !resourceEntriesStr.isEmpty()) {
+									for (String resourceEntry : resourceEntriesStr.split(",")) {
 										String[] resourceParts = resourceEntry.split("=");
 										resourceEntries.add(resourceParts);
 									}
@@ -99,16 +110,16 @@ public class TomcatContextProcessor {
 							}
 						}
 
-						List<Node> parameterNodes = findAllNodes(contextXmlDocument, "Parameter");
-						if(!parameterNodes.isEmpty()) {
-							for(Node parameterNode: parameterNodes) {
-								Attr paramNameAttr = (Attr)parameterNode.getAttributes().getNamedItem("name");
-								if(paramNameAttr != null) {
+						List<Node> parameterNodes = DOMUtil.findAllNodes(contextXmlDocument, "Parameter");
+						if (!parameterNodes.isEmpty()) {
+							for (Node parameterNode : parameterNodes) {
+								Attr paramNameAttr = (Attr) parameterNode.getAttributes().getNamedItem("name");
+								if (paramNameAttr != null) {
 									String[] paramEntry = new String[2];
 									paramEntry[0] = paramNameAttr.getValue();
 
-									Attr paramValueAttr = (Attr)parameterNode.getAttributes().getNamedItem("value");
-									if(paramValueAttr != null) {
+									Attr paramValueAttr = (Attr) parameterNode.getAttributes().getNamedItem("value");
+									if (paramValueAttr != null) {
 										paramEntry[1] = paramValueAttr.getValue();
 									}
 
@@ -117,32 +128,30 @@ public class TomcatContextProcessor {
 							}
 						}
 
-						Node loaderNode = findFirstNode(contextXmlDocument, "Loader");
-						if(loaderNode != null) {
-							Attr virtualClasspathAttr = (Attr)loaderNode.getAttributes().getNamedItem("virtualClasspath");
-							if(virtualClasspathAttr != null) {
+						Node loaderNode = DOMUtil.findFirstNode(contextXmlDocument, "Loader");
+						if (loaderNode != null) {
+							Attr virtualClasspathAttr = (Attr) loaderNode.getAttributes().getNamedItem("virtualClasspath");
+							if (virtualClasspathAttr != null) {
 								String classpathEntriesStr = virtualClasspathAttr.getValue();
-								if(classpathEntriesStr != null) {
-									for(String classpathEntry: classpathEntriesStr.split(";")) {
+								if (classpathEntriesStr != null) {
+									for (String classpathEntry : classpathEntriesStr.split(";")) {
 										classpathEntries.add(classpathEntry);
 									}
 								}
 							}
 						}
 
-						Node jarScannerNode = findFirstNode(contextXmlDocument, "JarScanner");
-						if(jarScannerNode != null) {
-							Attr scanAllDirectoriesForJarsFlagAttr = (Attr)jarScannerNode.getAttributes().getNamedItem("scanAllDirectories");
-							if(scanAllDirectoriesForJarsFlagAttr != null) {
+						Node jarScannerNode = DOMUtil.findFirstNode(contextXmlDocument, "JarScanner");
+						if (jarScannerNode != null) {
+							Attr scanAllDirectoriesForJarsFlagAttr = (Attr) jarScannerNode.getAttributes().getNamedItem("scanAllDirectories");
+							if (scanAllDirectoriesForJarsFlagAttr != null) {
 								scanAllDirectoriesForJarsFlag = Boolean.parseBoolean(scanAllDirectoriesForJarsFlagAttr.getValue());
 							}
 						}
-					}
-					finally {
+					} finally {
 						contents.close();
 					}
-				}
-				else {
+				} else {
 					isModified = true;
 					contextXmlDocument = dBuilder.newDocument();
 					Element contextNode = contextXmlDocument.createElement("Context");
@@ -159,51 +168,52 @@ public class TomcatContextProcessor {
 					loaderNode.setAttribute("className", "org.apache.catalina.loader.VirtualWebappLoader");
 					contextNode.appendChild(loaderNode);
 				}
-			}
-			catch(ParserConfigurationException e) {
+			} catch (ParserConfigurationException e) {
 				TomcatContextBuilderPlugin.log(IStatus.ERROR, e.getMessage(), e);
-			}
-			catch(SAXException e) {
+			} catch (SAXException e) {
 				TomcatContextBuilderPlugin.log(IStatus.ERROR, e.getMessage(), e);
-			}
-			catch(IOException e) {
+			} catch (IOException e) {
 				TomcatContextBuilderPlugin.log(IStatus.ERROR, e.getMessage(), e);
 			}
 		}
 	}
 
+	@Override
 	public void setClasspathEntries(List<String> newClasspathEntries) {
 		isModified = isModified || !classpathEntries.equals(newClasspathEntries);
-		if(isModified) {
+		if (isModified) {
 			classpathEntries.clear();
-			if(newClasspathEntries != null) {
+			if (newClasspathEntries != null) {
 				classpathEntries.addAll(newClasspathEntries);
 			}
 		}
 	}
 
+	@Override
 	public void setResourceEntries(List<String[]> newResourceEntries) {
 		isModified = isModified || !TomcatContextUtil.areEntriesSame(resourceEntries, newResourceEntries);
-		if(isModified) {
+		if (isModified) {
 			resourceEntries.clear();
-			if(newResourceEntries != null) {
+			if (newResourceEntries != null) {
 				resourceEntries.addAll(newResourceEntries);
 			}
 		}
 	}
 
+	@Override
 	public void setParameterEntries(List<String[]> newParameterEntries) {
 		isModified = isModified || !TomcatContextUtil.areEntriesSame(parameterEntries, newParameterEntries);
-		if(isModified) {
+		if (isModified) {
 			parameterEntries.clear();
-			if(newParameterEntries != null) {
+			if (newParameterEntries != null) {
 				parameterEntries.addAll(newParameterEntries);
 			}
 		}
 	}
 
+	@Override
 	public void store() {
-		if(isModified && workspace != null && contextXmlDocument != null && !classpathEntries.isEmpty()) {
+		if (isModified && workspace != null && contextXmlDocument != null) {
 			processContextNode();
 			processLoaderNode();
 			processResourcesNode();
@@ -224,63 +234,58 @@ public class TomcatContextProcessor {
 				try {
 					StreamResult result = new StreamResult(outputWriter);
 					transformer.transform(source, result);
-				}
-				finally {
+				} finally {
 					outputWriter.close();
 				}
 
-			}
-			catch(TransformerConfigurationException e) {
+			} catch (TransformerConfigurationException e) {
 				TomcatContextBuilderPlugin.log(IStatus.ERROR, e.getMessage(), e);
-			}
-			catch(TransformerException e) {
+			} catch (TransformerException e) {
 				TomcatContextBuilderPlugin.log(IStatus.ERROR, e.getMessage(), e);
-			}
-			catch(IOException e) {
+			} catch (IOException e) {
 				TomcatContextBuilderPlugin.log(IStatus.ERROR, e.getMessage(), e);
 			}
 		}
 	}
 
 	private void processParameterNodes() {
-		List<Node> parameterNodes = findAllNodes(contextXmlDocument, "Parameter");
+		List<Node> parameterNodes = DOMUtil.findAllNodes(contextXmlDocument, "Parameter");
 		Map<String, String> parametersMap = new HashMap<String, String>();
-		for(String[] parameterEntry: parameterEntries) {
+		for (String[] parameterEntry : parameterEntries) {
 			parametersMap.put(parameterEntry[0], parameterEntry[1]);
 		}
 
-		for(Node parameterNode: parameterNodes) {
+		for (Node parameterNode : parameterNodes) {
 			String paramName = null;
-			Attr parameterNameNodeAttr = (Attr)parameterNode.getAttributes().getNamedItem("name");
-			if(parameterNameNodeAttr != null) {
+			Attr parameterNameNodeAttr = (Attr) parameterNode.getAttributes().getNamedItem("name");
+			if (parameterNameNodeAttr != null) {
 				paramName = parameterNameNodeAttr.getValue();
 			}
 
-			if(parametersMap.containsKey(paramName)) {
+			if (parametersMap.containsKey(paramName)) {
 				String paramValue = null;
-				Attr parameterValueNodeAttr = (Attr)parameterNode.getAttributes().getNamedItem("value");
-				if(parameterValueNodeAttr != null) {
+				Attr parameterValueNodeAttr = (Attr) parameterNode.getAttributes().getNamedItem("value");
+				if (parameterValueNodeAttr != null) {
 					paramValue = parameterValueNodeAttr.getValue();
 				}
 
 				String currentParamValue = parametersMap.get(paramName);
-				if(paramValue != currentParamValue && (paramValue == null || !paramValue.equals(currentParamValue))) {
+				if (paramValue != currentParamValue && (paramValue == null || !paramValue.equals(currentParamValue))) {
 					isModified = true;
-					((Element)parameterNode).setAttribute("value", currentParamValue);
+					((Element) parameterNode).setAttribute("value", currentParamValue);
 					parametersMap.remove(paramName);
 				}
 
-			}
-			else {
+			} else {
 				isModified = true;
 				parameterNode.getParentNode().removeChild(parameterNode);
 			}
 		}
 
-		if(!parametersMap.isEmpty()) {
+		if (!parametersMap.isEmpty()) {
 			isModified = true;
-			Node contextNode = findFirstNode(contextXmlDocument, "Context");
-			for(Map.Entry<String, String> parametersMapEntry: parametersMap.entrySet()) {
+			Node contextNode = DOMUtil.findFirstNode(contextXmlDocument, "Context");
+			for (Map.Entry<String, String> parametersMapEntry : parametersMap.entrySet()) {
 				Element parameterNode = contextXmlDocument.createElement("Parameter");
 				parameterNode.setAttribute("name", parametersMapEntry.getKey());
 				parameterNode.setAttribute("value", parametersMapEntry.getValue());
@@ -290,37 +295,37 @@ public class TomcatContextProcessor {
 	}
 
 	private void processJarScannerNode() {
-		Node contextNode = findFirstNode(contextXmlDocument, "Context");
-		Element jarScannerNode = (Element)findFirstNode(contextXmlDocument, "JarScanner");
-		if(jarScannerNode == null && scanAllDirectoriesForJarsFlag) {
+		Node contextNode = DOMUtil.findFirstNode(contextXmlDocument, "Context");
+		Element jarScannerNode = (Element) DOMUtil.findFirstNode(contextXmlDocument, "JarScanner");
+		if (jarScannerNode == null && scanAllDirectoriesForJarsFlag) {
 			jarScannerNode = contextXmlDocument.createElement("JarScanner");
 			contextNode.appendChild(jarScannerNode);
 		}
 
-		if(jarScannerNode != null) {
+		if (jarScannerNode != null) {
 			jarScannerNode.setAttribute("scanAllDirectories", Boolean.toString(scanAllDirectoriesForJarsFlag));
 		}
 	}
 
 	private Node processContextNode() {
-		Node contextNode = findFirstNode(contextXmlDocument, "Context");
-		if(contextNode != null) {
-			Attr docBaseAttr = (Attr)contextNode.getAttributes().getNamedItem("docBase");
-			if(docBaseAttr == null) {
+		Node contextNode = DOMUtil.findFirstNode(contextXmlDocument, "Context");
+		if (contextNode != null) {
+			Attr docBaseAttr = (Attr) contextNode.getAttributes().getNamedItem("docBase");
+			if (docBaseAttr == null) {
 				docBaseAttr = contextXmlDocument.createAttribute("docBase");
 				contextNode.getAttributes().setNamedItem(docBaseAttr);
 			}
 			docBaseAttr.setNodeValue(docBase);
 
-			Attr reloadableFlagAttr = (Attr)contextNode.getAttributes().getNamedItem("reloadable");
-			if(reloadableFlagAttr == null) {
+			Attr reloadableFlagAttr = (Attr) contextNode.getAttributes().getNamedItem("reloadable");
+			if (reloadableFlagAttr == null) {
 				reloadableFlagAttr = contextXmlDocument.createAttribute("reloadable");
 				contextNode.getAttributes().setNamedItem(reloadableFlagAttr);
 			}
 			reloadableFlagAttr.setNodeValue(Boolean.toString(reloadableFlag));
 
-			Attr useHttpOnlyFlagAttr = (Attr)contextNode.getAttributes().getNamedItem("useHttpOnly");
-			if(useHttpOnlyFlagAttr == null) {
+			Attr useHttpOnlyFlagAttr = (Attr) contextNode.getAttributes().getNamedItem("useHttpOnly");
+			if (useHttpOnlyFlagAttr == null) {
 				useHttpOnlyFlagAttr = contextXmlDocument.createAttribute("useHttpOnly");
 				contextNode.getAttributes().setNamedItem(useHttpOnlyFlagAttr);
 			}
@@ -330,16 +335,16 @@ public class TomcatContextProcessor {
 	}
 
 	private void processLoaderNode() {
-		Node loaderNode = findFirstNode(contextXmlDocument, "Loader");
-		if(loaderNode != null) {
-			Attr virtualClasspathAttr = (Attr)loaderNode.getAttributes().getNamedItem("virtualClasspath");
-			if(virtualClasspathAttr == null) {
+		Node loaderNode = DOMUtil.findFirstNode(contextXmlDocument, "Loader");
+		if (loaderNode != null) {
+			Attr virtualClasspathAttr = (Attr) loaderNode.getAttributes().getNamedItem("virtualClasspath");
+			if (virtualClasspathAttr == null) {
 				virtualClasspathAttr = contextXmlDocument.createAttribute("virtualClasspath");
 				loaderNode.getAttributes().setNamedItem(virtualClasspathAttr);
 			}
 
 			StringBuilder classpathEntriesBuilder = new StringBuilder();
-			for(String classpathEntry: classpathEntries) {
+			for (String classpathEntry : classpathEntries) {
 				classpathEntriesBuilder.append(classpathEntry);
 				classpathEntriesBuilder.append(";");
 			}
@@ -348,20 +353,20 @@ public class TomcatContextProcessor {
 	}
 
 	private void processResourcesNode() {
-		Node resourcesNode = findFirstNode(contextXmlDocument, "Resources");
-		if(resourcesNode != null) {
-			Attr extraResourcePathsAttr = (Attr)resourcesNode.getAttributes().getNamedItem("extraResourcePaths");
-			if(extraResourcePathsAttr == null) {
+		Node resourcesNode = DOMUtil.findFirstNode(contextXmlDocument, "Resources");
+		if (resourcesNode != null) {
+			Attr extraResourcePathsAttr = (Attr) resourcesNode.getAttributes().getNamedItem("extraResourcePaths");
+			if (extraResourcePathsAttr == null) {
 				extraResourcePathsAttr = contextXmlDocument.createAttribute("extraResourcePaths");
 				resourcesNode.getAttributes().setNamedItem(extraResourcePathsAttr);
 			}
 
 			StringBuilder resourceEntriesBuilder = new StringBuilder();
 			int resourceEntriesCount = resourceEntries.size();
-			for(int i = 0; i < resourceEntriesCount; i++) {
+			for (int i = 0; i < resourceEntriesCount; i++) {
 				String[] resourceEntry = resourceEntries.get(i);
 				resourceEntriesBuilder.append(resourceEntry[0] + "=" + resourceEntry[1]);
-				if(i < resourceEntriesCount - 1) {
+				if (i < resourceEntriesCount - 1) {
 					resourceEntriesBuilder.append(",");
 				}
 			}
@@ -369,59 +374,30 @@ public class TomcatContextProcessor {
 		}
 	}
 
-	private Node findFirstNode(Node node, String nodeName) {
-		Node result = null;
-		if(node != null && nodeName != null) {
-			if(nodeName.equals(node.getNodeName())) {
-				result = node;
-			}
-			else {
-				NodeList childNodes = node.getChildNodes();
-				for(int i = 0; result == null && i < childNodes.getLength(); i++) {
-					result = findFirstNode(childNodes.item(i), nodeName);
-				}
-			}
-		}
-
-		return result;
-	}
-
-	private List<Node> findAllNodes(Node node, String nodeName) {
-		List<Node> result = new ArrayList<Node>();
-		findAllNodes(node, nodeName, result);
-		return result;
-	}
-
-	private void findAllNodes(Node node, String nodeName, List<Node> result) {
-		if(node != null && nodeName != null) {
-			if(nodeName.equals(node.getNodeName())) {
-				result.add(node);
-			}
-			else {
-				NodeList childNodes = node.getChildNodes();
-				for(int i = 0; i < childNodes.getLength(); i++) {
-					findAllNodes(childNodes.item(i), nodeName, result);
-				}
-			}
-		}
-	}
-
+	@Override
 	public void setReloadableFlag(boolean reloadableFlag) {
 		isModified = isModified || (this.reloadableFlag != reloadableFlag);
 		this.reloadableFlag = reloadableFlag;
 
 	}
 
+	@Override
 	public void setUseHttpOnlyFlag(boolean useHttpOnlyFlag) {
 		isModified = isModified || (this.useHttpOnlyFlag != useHttpOnlyFlag);
 		this.useHttpOnlyFlag = useHttpOnlyFlag;
 	}
 
+	@Override
 	public void setScanAllDirectoriesForJarsFlag(boolean scanAllDirectoriesForJarsFlag) {
 		isModified = isModified || (this.scanAllDirectoriesForJarsFlag != scanAllDirectoriesForJarsFlag);
 		this.scanAllDirectoriesForJarsFlag = scanAllDirectoriesForJarsFlag;
 	}
 
+	@Override
+	public void setContainerSciFilter(String containerSciFilter) {
+	}
+
+	@Override
 	public void setDocBase(String docBase) {
 		isModified = isModified || (docBase != null && !docBase.equals(this.docBase));
 		this.docBase = docBase;

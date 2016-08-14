@@ -15,12 +15,17 @@ import org.eclipse.core.filesystem.URIUtil;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IProjectDescription;
 import org.eclipse.core.resources.IResource;
+import org.eclipse.core.resources.IWorkspace;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IConfigurationElement;
 import org.eclipse.core.runtime.IExtensionPoint;
 import org.eclipse.core.runtime.IPath;
 import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Platform;
+
+import com.cwctravel.eclipse.plugins.tomcat.contextprocessors.TomcatContextProcessor;
+import com.cwctravel.eclipse.plugins.tomcat.contextprocessors.v7.Tomcat7ContextProcessor;
+import com.cwctravel.eclipse.plugins.tomcat.contextprocessors.v8.Tomcat8ContextProcessor;
 
 public class TomcatContextUtil {
 	public static boolean areResourcesSame(List<ResourceInfo> resources1, List<ResourceInfo> resources2) {
@@ -39,9 +44,9 @@ public class TomcatContextUtil {
 
 	public static List<String[]> getResourceEntries(List<ResourceInfo> resources) {
 		List<String[]> result = new ArrayList<String[]>();
-		if(resources != null) {
-			for(ResourceInfo resourceInfo: resources) {
-				result.add(new String[] {resourceInfo.getPath(), resourceInfo.getLocation()});
+		if (resources != null) {
+			for (ResourceInfo resourceInfo : resources) {
+				result.add(new String[] { resourceInfo.getPath(), resourceInfo.getLocation() });
 			}
 		}
 		return result;
@@ -49,9 +54,9 @@ public class TomcatContextUtil {
 
 	public static List<String[]> getParameterEntries(List<ParameterInfo> parameters) {
 		List<String[]> result = new ArrayList<String[]>();
-		if(parameters != null) {
-			for(ParameterInfo parameterInfo: parameters) {
-				result.add(new String[] {parameterInfo.getParamName(), parameterInfo.getParamValue()});
+		if (parameters != null) {
+			for (ParameterInfo parameterInfo : parameters) {
+				result.add(new String[] { parameterInfo.getParamName(), parameterInfo.getParamValue() });
 			}
 		}
 		return result;
@@ -59,26 +64,23 @@ public class TomcatContextUtil {
 
 	public static boolean areEntriesSame(List<String[]> entries1, List<String[]> entries2) {
 		boolean result = false;
-		if(entries1 == entries2) {
+		if (entries1 == entries2) {
 			result = true;
-		}
-		else if(entries1 == null || entries2 == null) {
+		} else if (entries1 == null || entries2 == null) {
 			result = true;
-		}
-		else {
+		} else {
 			Map<String, String> entriesMap1 = createResourceMap(entries1);
 			Map<String, String> entriesMap2 = createResourceMap(entries2);
 
-			if(entriesMap1.size() != entriesMap2.size()) {
+			if (entriesMap1.size() != entriesMap2.size()) {
 				result = false;
-			}
-			else {
+			} else {
 				result = true;
 
-				for(Map.Entry<String, String> entriesMapEntry1: entriesMap1.entrySet()) {
+				for (Map.Entry<String, String> entriesMapEntry1 : entriesMap1.entrySet()) {
 					String resourcePath = entriesMapEntry1.getKey();
 					String resourceLocation = entriesMapEntry1.getValue();
-					if(!resourceLocation.equals(entriesMap2.get(resourcePath))) {
+					if (!resourceLocation.equals(entriesMap2.get(resourcePath))) {
 						result = false;
 						break;
 					}
@@ -91,8 +93,8 @@ public class TomcatContextUtil {
 
 	private static Map<String, String> createResourceMap(List<String[]> resourceEntries) {
 		Map<String, String> result = new HashMap<String, String>();
-		if(resourceEntries != null) {
-			for(String[] resourceEntry: resourceEntries) {
+		if (resourceEntries != null) {
+			for (String[] resourceEntry : resourceEntries) {
 				result.put(resourceEntry[0], resourceEntry[1]);
 			}
 		}
@@ -102,14 +104,14 @@ public class TomcatContextUtil {
 
 	public static <T> String joinCollection(Collection<T> collection, String sepStr) {
 		StringBuilder sB = new StringBuilder();
-		if(collection != null) {
+		if (collection != null) {
 			Iterator<T> iter = collection.iterator();
-			while(iter.hasNext()) {
+			while (iter.hasNext()) {
 				T t = iter.next();
-				if(t != null) {
+				if (t != null) {
 					sB.append(t.toString());
 				}
-				if(iter.hasNext()) {
+				if (iter.hasNext()) {
 					sB.append(sepStr);
 				}
 			}
@@ -122,7 +124,7 @@ public class TomcatContextUtil {
 		contextConfigKey = contextConfigKey.replaceAll(".*:", "");
 		contextConfigKey = contextConfigKey.replace("/", ".");
 		contextConfigKey = contextConfigKey.replace("\\", ".");
-		if(contextConfigKey.startsWith(".")) {
+		if (contextConfigKey.startsWith(".")) {
 			contextConfigKey = contextConfigKey.substring(1);
 		}
 		contextConfigKey = contextConfigKey.toLowerCase();
@@ -133,7 +135,7 @@ public class TomcatContextUtil {
 	public static String getDocBase(IProject project) {
 		String result = null;
 		IResource resource = project.findMember("WebContent");
-		if(resource != null) {
+		if (resource != null) {
 			result = resource.getLocation().toOSString();
 		}
 
@@ -142,34 +144,30 @@ public class TomcatContextUtil {
 
 	public static List<String> getClasspathEntries(IProject project) {
 		List<String> result = new ArrayList<>();
-		IExtensionPoint extensionPoint = Platform.getExtensionRegistry().getExtensionPoint("com.cwctravel.eclipse.plugins.dependencies.classpathEntriesProvider");
-		if(extensionPoint != null) {
+		IExtensionPoint extensionPoint = Platform.getExtensionRegistry()
+				.getExtensionPoint("com.cwctravel.eclipse.plugins.dependencies.classpathEntriesProvider");
+		if (extensionPoint != null) {
 			IConfigurationElement[] configurationElements = extensionPoint.getConfigurationElements();
-			for(IConfigurationElement element: configurationElements) {
+			for (IConfigurationElement element : configurationElements) {
 				try {
 					Object classpathEntriesProvider = element.createExecutableExtension("class");
 					Method m = classpathEntriesProvider.getClass().getMethod("getClasspathEntries", IProject.class, Set.class);
-					@SuppressWarnings("unchecked") List<String> classpathEntries = (List<String>)m.invoke(classpathEntriesProvider, project, null);
-					if(classpathEntries != null) {
+					@SuppressWarnings("unchecked")
+					List<String> classpathEntries = (List<String>) m.invoke(classpathEntriesProvider, project, null);
+					if (classpathEntries != null) {
 						result.addAll(classpathEntries);
 					}
-				}
-				catch(CoreException e) {
+				} catch (CoreException e) {
 					TomcatContextBuilderPlugin.log(IStatus.ERROR, e.getMessage(), e);
-				}
-				catch(NoSuchMethodException e) {
+				} catch (NoSuchMethodException e) {
 					TomcatContextBuilderPlugin.log(IStatus.ERROR, e.getMessage(), e);
-				}
-				catch(SecurityException e) {
+				} catch (SecurityException e) {
 					TomcatContextBuilderPlugin.log(IStatus.ERROR, e.getMessage(), e);
-				}
-				catch(IllegalAccessException e) {
+				} catch (IllegalAccessException e) {
 					TomcatContextBuilderPlugin.log(IStatus.ERROR, e.getMessage(), e);
-				}
-				catch(IllegalArgumentException e) {
+				} catch (IllegalArgumentException e) {
 					TomcatContextBuilderPlugin.log(IStatus.ERROR, e.getMessage(), e);
-				}
-				catch(InvocationTargetException e) {
+				} catch (InvocationTargetException e) {
 					TomcatContextBuilderPlugin.log(IStatus.ERROR, e.getMessage(), e);
 				}
 			}
@@ -184,14 +182,13 @@ public class TomcatContextUtil {
 
 	public static String resolvePath(final IResource project, String path, boolean checkIfExists) {
 		String result = null;
-		if(path != null) {
-			if(new File(path).exists()) {
+		if (path != null) {
+			if (new File(path).exists()) {
 				result = path;
-			}
-			else {
+			} else {
 				IPath resolvedPath = URIUtil.toPath(project.getPathVariableManager().resolveURI(URIUtil.toURI(path)));
 				result = resolvedPath.toOSString();
-				if(checkIfExists && !new File(result).exists()) {
+				if (checkIfExists && !new File(result).exists()) {
 					result = null;
 				}
 			}
@@ -201,19 +198,37 @@ public class TomcatContextUtil {
 
 	public static boolean hasTomcatNature(IProject project) {
 		try {
-			if(project != null) {
+			if (project != null) {
 				IProjectDescription description = project.getDescription();
 				String[] natures = description.getNatureIds();
-				for(int i = 0; i < natures.length; ++i) {
-					if(TomcatConstants.TOMCAT_NATURE_ID.equals(natures[i])) {
+				for (int i = 0; i < natures.length; ++i) {
+					if (TomcatConstants.TOMCAT_NATURE_ID.equals(natures[i])) {
 						return true;
 					}
 				}
 			}
 			return false;
-		}
-		catch(CoreException e) {
+		} catch (CoreException e) {
 			throw new RuntimeException(e.getMessage(), e);
 		}
+	}
+
+	public static TomcatContextProcessor newTomcatContextProcessor(IWorkspace workspace, TomcatVersion tomcatVersion) {
+		TomcatContextProcessor result = null;
+		if (tomcatVersion != null) {
+			switch (tomcatVersion) {
+				case VERSION_7: {
+					result = new Tomcat7ContextProcessor(workspace);
+					break;
+				}
+				case VERSION_8: {
+					result = new Tomcat8ContextProcessor(workspace);
+					break;
+				}
+			}
+		}
+
+		return result;
+
 	}
 }

@@ -33,6 +33,8 @@ import org.eclipse.ui.IWorkbenchActionConstants;
 import org.eclipse.ui.part.ViewPart;
 import org.osgi.service.prefs.BackingStoreException;
 
+import com.cwctravel.eclipse.plugins.tomcat.contextprocessors.TomcatContextProcessor;
+
 public class TomcatContextsView extends ViewPart {
 	public static final String ID = "com.cwctravel.eclipse.plugins.dependencies.tomcat.TomcatContextsView";
 
@@ -50,8 +52,8 @@ public class TomcatContextsView extends ViewPart {
 		@Override
 		public Font getFont(Object element) {
 			Font result = null;
-			if(element != null) {
-				if(!isContextDisabled(element)) {
+			if (element != null) {
+				if (!isContextDisabled(element)) {
 					result = boldFont;
 				}
 			}
@@ -62,11 +64,10 @@ public class TomcatContextsView extends ViewPart {
 		@Override
 		public Color getForeground(Object element) {
 			Color result = table.getDisplay().getSystemColor(SWT.COLOR_RED);
-			if(element != null) {
-				if(isContextDisabled(element)) {
+			if (element != null) {
+				if (isContextDisabled(element)) {
 					result = table.getDisplay().getSystemColor(SWT.COLOR_RED);
-				}
-				else {
+				} else {
 					result = table.getDisplay().getSystemColor(SWT.COLOR_DARK_GREEN);
 				}
 			}
@@ -104,8 +105,8 @@ public class TomcatContextsView extends ViewPart {
 		viewerColumnContextName.setLabelProvider(new ContextConfigColumnLabelProvider(table) {
 			@Override
 			public String getText(Object element) {
-				if(element != null) {
-					ContextConfigInfo contextConfigInfo = (ContextConfigInfo)element;
+				if (element != null) {
+					ContextConfigInfo contextConfigInfo = (ContextConfigInfo) element;
 					return contextConfigInfo.getContextName();
 				}
 				return null;
@@ -120,8 +121,8 @@ public class TomcatContextsView extends ViewPart {
 		viewerColumnContextLocation.setLabelProvider(new ContextConfigColumnLabelProvider(table) {
 			@Override
 			public String getText(Object element) {
-				if(element != null) {
-					ContextConfigInfo contextConfigInfo = (ContextConfigInfo)element;
+				if (element != null) {
+					ContextConfigInfo contextConfigInfo = (ContextConfigInfo) element;
 					return contextConfigInfo.getResolvedContextConfigFile();
 				}
 				return null;
@@ -137,8 +138,8 @@ public class TomcatContextsView extends ViewPart {
 		viewerColumnContextStatus.setLabelProvider(new ContextConfigColumnLabelProvider(table) {
 			@Override
 			public String getText(Object element) {
-				if(element != null) {
-					ContextConfigInfo contextConfigInfo = (ContextConfigInfo)element;
+				if (element != null) {
+					ContextConfigInfo contextConfigInfo = (ContextConfigInfo) element;
 					IEclipsePreferences preferences = InstanceScope.INSTANCE.getNode(TomcatConstants.TOMCAT_CONTEXT_BUILDER_PLUGIN_ID);
 					String contextConfigDisabledKey = TomcatContextUtil.getContextConfigDisabledKey(contextConfigInfo);
 					return preferences.getBoolean(contextConfigDisabledKey, false) ? "Disabled" : "Enabled";
@@ -158,7 +159,8 @@ public class TomcatContextsView extends ViewPart {
 	}
 
 	@Override
-	public void setFocus() {}
+	public void setFocus() {
+	}
 
 	private void hookContextMenu() {
 		MenuManager menuMgr = new MenuManager("#PopupMenu");
@@ -177,26 +179,24 @@ public class TomcatContextsView extends ViewPart {
 	private void fillContextMenu(IMenuManager manager) {
 		Table contextTable = viewer.getTable();
 		int selectionCount = contextTable.getSelectionCount();
-		if(selectionCount == 1) {
+		if (selectionCount == 1) {
 			int selectionIndex = contextTable.getSelectionIndex();
-			if(selectionIndex >= 0) {
-				ContextConfigInfo contextConfigInfo = (ContextConfigInfo)contextTable.getItem(selectionIndex).getData();
-				if(contextConfigInfo != null) {
+			if (selectionIndex >= 0) {
+				ContextConfigInfo contextConfigInfo = (ContextConfigInfo) contextTable.getItem(selectionIndex).getData();
+				if (contextConfigInfo != null) {
 					IEclipsePreferences preferences = InstanceScope.INSTANCE.getNode(TomcatConstants.TOMCAT_CONTEXT_BUILDER_PLUGIN_ID);
 					String contextConfigDisabledKey = TomcatContextUtil.getContextConfigDisabledKey(contextConfigInfo);
 					boolean contextDisabled = preferences.getBoolean(contextConfigDisabledKey, false);
-					if(contextDisabled) {
+					if (contextDisabled) {
 						manager.add(enableContextAction);
-					}
-					else {
+					} else {
 						manager.add(disableContextAction);
 					}
 
 					manager.add(new Separator(IWorkbenchActionConstants.MB_ADDITIONS));
 				}
 			}
-		}
-		else if(selectionCount > 1) {
+		} else if (selectionCount > 1) {
 			manager.add(enableSelectedContextsAction);
 			manager.add(disableSelectedContextsAction);
 			manager.add(new Separator(IWorkbenchActionConstants.MB_ADDITIONS));
@@ -226,30 +226,32 @@ public class TomcatContextsView extends ViewPart {
 			public void run() {
 				Table contextTable = viewer.getTable();
 				int selectionIndex = contextTable.getSelectionIndex();
-				if(selectionIndex >= 0) {
-					ContextConfigInfo contextConfigInfo = (ContextConfigInfo)contextTable.getItem(selectionIndex).getData();
+				if (selectionIndex >= 0) {
+					ContextConfigInfo contextConfigInfo = (ContextConfigInfo) contextTable.getItem(selectionIndex).getData();
 					enableContext(contextConfigInfo, true);
 				}
 			}
 		};
 		enableContextAction.setText("Enable");
 		enableContextAction.setToolTipText("Enable");
-		enableContextAction.setImageDescriptor(TomcatContextBuilderPlugin.getInstance().getImageRegistry().getDescriptor(TomcatContextBuilderPlugin.TOMCAT_ENABLE_CONTEXT_ICON_ID));
+		enableContextAction.setImageDescriptor(
+				TomcatContextBuilderPlugin.getInstance().getImageRegistry().getDescriptor(TomcatContextBuilderPlugin.TOMCAT_ENABLE_CONTEXT_ICON_ID));
 
 		disableContextAction = new Action() {
 			@Override
 			public void run() {
 				Table contextTable = viewer.getTable();
 				int selectionIndex = contextTable.getSelectionIndex();
-				if(selectionIndex >= 0) {
-					ContextConfigInfo contextConfigInfo = (ContextConfigInfo)contextTable.getItem(selectionIndex).getData();
+				if (selectionIndex >= 0) {
+					ContextConfigInfo contextConfigInfo = (ContextConfigInfo) contextTable.getItem(selectionIndex).getData();
 					disableContext(contextConfigInfo, true);
 				}
 			}
 		};
 		disableContextAction.setText("Disable");
 		disableContextAction.setToolTipText("Disable");
-		disableContextAction.setImageDescriptor(TomcatContextBuilderPlugin.getInstance().getImageRegistry().getDescriptor(TomcatContextBuilderPlugin.TOMCAT_DISABLE_CONTEXT_ICON_ID));
+		disableContextAction.setImageDescriptor(
+				TomcatContextBuilderPlugin.getInstance().getImageRegistry().getDescriptor(TomcatContextBuilderPlugin.TOMCAT_DISABLE_CONTEXT_ICON_ID));
 
 		refreshContextsAction = new Action() {
 			@Override
@@ -260,15 +262,16 @@ public class TomcatContextsView extends ViewPart {
 
 		refreshContextsAction.setText("Refresh");
 		refreshContextsAction.setToolTipText("Refresh Contexts");
-		refreshContextsAction.setImageDescriptor(TomcatContextBuilderPlugin.getInstance().getImageRegistry().getDescriptor(TomcatContextBuilderPlugin.TOMCAT_REFRESH_CONTEXTS_ICON_ID));
+		refreshContextsAction.setImageDescriptor(TomcatContextBuilderPlugin.getInstance().getImageRegistry()
+				.getDescriptor(TomcatContextBuilderPlugin.TOMCAT_REFRESH_CONTEXTS_ICON_ID));
 
 		enableSelectedContextsAction = new Action() {
 			@Override
 			public void run() {
 				Table contextTable = viewer.getTable();
 				int[] selectedIndices = contextTable.getSelectionIndices();
-				for(int selectedIndex: selectedIndices) {
-					ContextConfigInfo contextConfigInfo = (ContextConfigInfo)contextTable.getItem(selectedIndex).getData();
+				for (int selectedIndex : selectedIndices) {
+					ContextConfigInfo contextConfigInfo = (ContextConfigInfo) contextTable.getItem(selectedIndex).getData();
 					enableContext(contextConfigInfo, false);
 				}
 				viewer.refresh();
@@ -277,15 +280,16 @@ public class TomcatContextsView extends ViewPart {
 
 		enableSelectedContextsAction.setText("Enable Selected");
 		enableSelectedContextsAction.setToolTipText("Enable Selected Contexts");
-		enableSelectedContextsAction.setImageDescriptor(TomcatContextBuilderPlugin.getInstance().getImageRegistry().getDescriptor(TomcatContextBuilderPlugin.TOMCAT_ENABLE_CONTEXT_ICON_ID));
+		enableSelectedContextsAction.setImageDescriptor(
+				TomcatContextBuilderPlugin.getInstance().getImageRegistry().getDescriptor(TomcatContextBuilderPlugin.TOMCAT_ENABLE_CONTEXT_ICON_ID));
 
 		disableSelectedContextsAction = new Action() {
 			@Override
 			public void run() {
 				Table contextTable = viewer.getTable();
 				int[] selectedIndices = contextTable.getSelectionIndices();
-				for(int selectedIndex: selectedIndices) {
-					ContextConfigInfo contextConfigInfo = (ContextConfigInfo)contextTable.getItem(selectedIndex).getData();
+				for (int selectedIndex : selectedIndices) {
+					ContextConfigInfo contextConfigInfo = (ContextConfigInfo) contextTable.getItem(selectedIndex).getData();
 					disableContext(contextConfigInfo, false);
 				}
 				viewer.refresh();
@@ -294,15 +298,16 @@ public class TomcatContextsView extends ViewPart {
 
 		disableSelectedContextsAction.setText("Disable Selected");
 		disableSelectedContextsAction.setToolTipText("Disable Selected Contexts");
-		disableSelectedContextsAction.setImageDescriptor(TomcatContextBuilderPlugin.getInstance().getImageRegistry().getDescriptor(TomcatContextBuilderPlugin.TOMCAT_DISABLE_CONTEXT_ICON_ID));
+		disableSelectedContextsAction.setImageDescriptor(
+				TomcatContextBuilderPlugin.getInstance().getImageRegistry().getDescriptor(TomcatContextBuilderPlugin.TOMCAT_DISABLE_CONTEXT_ICON_ID));
 
 		enableAllContextsAction = new Action() {
 			@Override
 			public void run() {
 				Table contextTable = viewer.getTable();
 				TableItem[] items = contextTable.getItems();
-				for(TableItem item: items) {
-					ContextConfigInfo contextConfigInfo = (ContextConfigInfo)item.getData();
+				for (TableItem item : items) {
+					ContextConfigInfo contextConfigInfo = (ContextConfigInfo) item.getData();
 					enableContext(contextConfigInfo, false);
 				}
 				viewer.refresh();
@@ -311,15 +316,16 @@ public class TomcatContextsView extends ViewPart {
 
 		enableAllContextsAction.setText("Enable All");
 		enableAllContextsAction.setToolTipText("Enable All Contexts");
-		enableAllContextsAction.setImageDescriptor(TomcatContextBuilderPlugin.getInstance().getImageRegistry().getDescriptor(TomcatContextBuilderPlugin.TOMCAT_ENABLE_CONTEXT_ICON_ID));
+		enableAllContextsAction.setImageDescriptor(
+				TomcatContextBuilderPlugin.getInstance().getImageRegistry().getDescriptor(TomcatContextBuilderPlugin.TOMCAT_ENABLE_CONTEXT_ICON_ID));
 
 		disableAllContextsAction = new Action() {
 			@Override
 			public void run() {
 				Table contextTable = viewer.getTable();
 				TableItem[] items = contextTable.getItems();
-				for(TableItem item: items) {
-					ContextConfigInfo contextConfigInfo = (ContextConfigInfo)item.getData();
+				for (TableItem item : items) {
+					ContextConfigInfo contextConfigInfo = (ContextConfigInfo) item.getData();
 					disableContext(contextConfigInfo, false);
 				}
 				viewer.refresh();
@@ -328,12 +334,13 @@ public class TomcatContextsView extends ViewPart {
 
 		disableAllContextsAction.setText("Disable All");
 		disableAllContextsAction.setToolTipText("Disable All Contexts");
-		disableAllContextsAction.setImageDescriptor(TomcatContextBuilderPlugin.getInstance().getImageRegistry().getDescriptor(TomcatContextBuilderPlugin.TOMCAT_DISABLE_CONTEXT_ICON_ID));
+		disableAllContextsAction.setImageDescriptor(
+				TomcatContextBuilderPlugin.getInstance().getImageRegistry().getDescriptor(TomcatContextBuilderPlugin.TOMCAT_DISABLE_CONTEXT_ICON_ID));
 	}
 
 	private void enableContext(ContextConfigInfo contextConfigInfo, boolean refreshView) {
 		try {
-			if(contextConfigInfo != null) {
+			if (contextConfigInfo != null) {
 				IEclipsePreferences preferences = InstanceScope.INSTANCE.getNode(TomcatConstants.TOMCAT_CONTEXT_BUILDER_PLUGIN_ID);
 				String contextConfigDisabledKey = TomcatContextUtil.getContextConfigDisabledKey(contextConfigInfo);
 				preferences.putBoolean(contextConfigDisabledKey, false);
@@ -341,13 +348,15 @@ public class TomcatContextsView extends ViewPart {
 				preferences.sync();
 
 				IProject project = ResourcesPlugin.getWorkspace().getRoot().getProject(contextConfigInfo.getProjectName());
-				if(project != null) {
+				if (project != null) {
 
 					List<String> classpathEntries = TomcatContextUtil.getClasspathEntries(project);
 
 					String docBase = TomcatContextUtil.getDocBase(project);
 
-					TomcatContextProcessor tomcatContextProcessor = new TomcatContextProcessor(ResourcesPlugin.getWorkspace(), contextConfigInfo.getResolvedContextConfigFile());
+					TomcatContextProcessor tomcatContextProcessor = TomcatContextUtil.newTomcatContextProcessor(project.getWorkspace(),
+							contextConfigInfo.getTomcatVersion());
+					tomcatContextProcessor.load(contextConfigInfo.getResolvedContextConfigFile());
 					tomcatContextProcessor.setDocBase(docBase);
 					tomcatContextProcessor.setClasspathEntries(classpathEntries);
 					tomcatContextProcessor.setResourceEntries(TomcatContextUtil.getResourceEntries(contextConfigInfo.getResources()));
@@ -355,22 +364,22 @@ public class TomcatContextsView extends ViewPart {
 					tomcatContextProcessor.setReloadableFlag(contextConfigInfo.isReloadableFlag());
 					tomcatContextProcessor.setUseHttpOnlyFlag(contextConfigInfo.isUseHttpOnlyFlag());
 					tomcatContextProcessor.setScanAllDirectoriesForJarsFlag(contextConfigInfo.isScanAllDirectoriesForJarsFlag());
+					tomcatContextProcessor.setContainerSciFilter(contextConfigInfo.getContainerSciFilter());
 					tomcatContextProcessor.store();
 
-					if(refreshView) {
+					if (refreshView) {
 						viewer.refresh();
 					}
 
 				}
 			}
-		}
-		catch(BackingStoreException e) {
+		} catch (BackingStoreException e) {
 			TomcatContextBuilderPlugin.log(IStatus.ERROR, e.getMessage(), e);
 		}
 	}
 
 	private void disableContext(ContextConfigInfo contextConfigInfo, boolean refreshView) {
-		if(contextConfigInfo != null) {
+		if (contextConfigInfo != null) {
 			try {
 				IEclipsePreferences preferences = InstanceScope.INSTANCE.getNode(TomcatConstants.TOMCAT_CONTEXT_BUILDER_PLUGIN_ID);
 				String contextConfigDisabledKey = TomcatContextUtil.getContextConfigDisabledKey(contextConfigInfo);
@@ -378,20 +387,19 @@ public class TomcatContextsView extends ViewPart {
 				preferences.flush();
 				preferences.sync();
 
-				if(refreshView) {
+				if (refreshView) {
 					viewer.refresh();
 				}
 
 				new File(contextConfigInfo.getResolvedContextConfigFile()).delete();
-			}
-			catch(BackingStoreException e) {
+			} catch (BackingStoreException e) {
 				TomcatContextBuilderPlugin.log(IStatus.ERROR, e.getMessage(), e);
 			}
 		}
 	}
 
 	private static boolean isContextDisabled(Object element) {
-		ContextConfigInfo contextConfigInfo = (ContextConfigInfo)element;
+		ContextConfigInfo contextConfigInfo = (ContextConfigInfo) element;
 		IEclipsePreferences preferences = InstanceScope.INSTANCE.getNode(TomcatConstants.TOMCAT_CONTEXT_BUILDER_PLUGIN_ID);
 		String contextConfigDisabledKey = TomcatContextUtil.getContextConfigDisabledKey(contextConfigInfo);
 		boolean isContextDisabled = preferences.getBoolean(contextConfigDisabledKey, false);

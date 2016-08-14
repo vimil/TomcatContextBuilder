@@ -4,9 +4,12 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class ContextConfigInfo {
+	private TomcatVersion tomcatVersion;
+
 	private String contextName;
 	private String contextConfigLocation;
 	private String resolvedContextConfigLocation;
+	private String containerSciFilter;
 
 	private boolean reloadableFlag;
 	private boolean useHttpOnlyFlag;
@@ -17,6 +20,14 @@ public class ContextConfigInfo {
 	private List<ResourceInfo> resources;
 
 	private List<ParameterInfo> parameters;
+
+	public TomcatVersion getTomcatVersion() {
+		return tomcatVersion;
+	}
+
+	public void setTomcatVersion(TomcatVersion tomcatVersion) {
+		this.tomcatVersion = tomcatVersion;
+	}
 
 	public String getProjectName() {
 		return projectName;
@@ -74,8 +85,16 @@ public class ContextConfigInfo {
 		this.scanAllDirectoriesForJarsFlag = scanAllDirectoriesForJarsFlag;
 	}
 
+	public String getContainerSciFilter() {
+		return containerSciFilter;
+	}
+
+	public void setContainerSciFilter(String containerSciFilter) {
+		this.containerSciFilter = containerSciFilter;
+	}
+
 	public List<ResourceInfo> getResources() {
-		if(resources == null) {
+		if (resources == null) {
 			resources = new ArrayList<ResourceInfo>();
 		}
 		return resources;
@@ -86,7 +105,7 @@ public class ContextConfigInfo {
 	}
 
 	public List<ParameterInfo> getParameters() {
-		if(parameters == null) {
+		if (parameters == null) {
 			parameters = new ArrayList<ParameterInfo>();
 		}
 		return parameters;
